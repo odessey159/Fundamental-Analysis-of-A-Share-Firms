@@ -1,0 +1,353 @@
+---------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  D:\Google Download\Assignment2.log
+  log type:  text
+ opened on:  16 Mar 2025, 17:48:33
+
+. use "TRD_Mnth.dta",clear
+(CSMAR)
+
+. gen date=monthly(Trdmnt, "YM")
+
+. format date %tm
+
+. gen date_daily = dofm(date)
+
+. format date_daily %td
+
+. gen month=month(date_daily)
+
+. keep if mod(month, 3) == 0  
+(413,315 observations deleted)
+
+. gen dateq=qofd(dofm(date))
+
+. format dateq %tq
+
+. drop Trdmnt
+
+. drop date
+
+. drop date_daily
+
+. drop month
+
+. rename dateq Accper
+
+. save "processed_TRD_Mnth.dta", replace
+file processed_TRD_Mnth.dta saved
+
+. 
+. use "FI_T9.dta",clear
+(CSMAR)
+
+. gen date=date(Accper, "YMD")
+
+. gen month=month(date)
+
+. keep if mod(month, 3) == 0 
+(0 observations deleted)
+
+. keep if Typrep == "A"
+(194,628 observations deleted)
+
+. format date %td
+
+. gen dateq=qofd(date)
+
+. format dateq %tq
+
+. drop Accper
+
+. drop date
+
+. drop month
+
+. rename dateq Accper
+
+. save "processed_FI_T9.dta", replace
+file processed_FI_T9.dta saved
+
+. 
+. 
+. use "FI_T5.dta",clear
+(CSMAR)
+
+. gen date=date(Accper, "YMD")
+
+. gen month=month(date)
+
+. keep if mod(month, 3) == 0 
+(0 observations deleted)
+
+. keep if Typrep == "A"
+(196,369 observations deleted)
+
+. format date %td
+
+. gen dateq=qofd(date)
+
+. format dateq %tq
+
+. drop Accper
+
+. drop date
+
+. drop month
+
+. rename dateq Accper
+
+. save "processed_FI_T5.dta", replace
+file processed_FI_T5.dta saved
+
+. 
+. use "STK_MKT_STKBTAL.dta",clear
+(CSMAR)
+
+. gen date=date(TradingDate, "YMD")
+
+. gen month=month(date)
+
+. gen year = year(date)
+
+. bysort Symbol year month (date): keep if _n == _N
+(373,788 observations deleted)
+
+. keep if mod(month, 3) == 0 
+(13,310 observations deleted)
+
+. format date %td
+
+. gen dateq=qofd(date)
+
+. format dateq %tq
+
+. drop TradingDate
+
+. drop date
+
+. drop month
+
+. drop year
+
+. rename dateq Accper
+
+. rename Symbol Stkcd
+
+. save "processed_STK_MKT_STKBTAL.dta", replace
+file processed_STK_MKT_STKBTAL.dta saved
+
+. 
+. use "processed_TRD_Mnth.dta",clear
+(CSMAR)
+
+. merge 1:1 Accper Stkcd using "processed_FI_T9.dta"
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                        31,677
+        from master                     5,591  (_merge==1)
+        from using                     26,086  (_merge==2)
+
+    matched                           204,952  (_merge==3)
+    -----------------------------------------
+
+. gen PBratio=Mclsprc/F091001A
+(31,684 missing values generated)
+
+. drop _merge
+
+. merge 1:1 Accper Stkcd using "processed_FI_T5.dta"
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                         7,484
+        from master                     5,590  (_merge==1)
+        from using                      1,894  (_merge==2)
+
+    matched                           231,039  (_merge==3)
+    -----------------------------------------
+
+. drop _merge
+
+. merge 1:1 Accper Stkcd using "processed_STK_MKT_STKBTAL.dta"
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                       231,815
+        from master                   231,815  (_merge==1)
+        from using                          0  (_merge==2)
+
+    matched                             6,708  (_merge==3)
+    -----------------------------------------
+
+. drop _merge
+
+. summarize PBratio, detail
+
+                           PBratio
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%     .0929109      -218333.3
+ 5%     .6875241      -85595.23
+10%     .9919786      -40119.05       Obs             204,945
+25%      1.59754      -16434.11       Sum of Wgt.     204,945
+
+50%     2.570607                      Mean           2.296324
+                        Largest       Std. Dev.      533.9418
+75%     4.182815       8139.797
+90%     6.860244       9384.836       Variance       285093.8
+95%     9.602427       11844.05       Skewness      -355.7534
+99%     23.33361       20453.02       Kurtosis       139824.4
+
+. centile PBratio, centile(5 95)
+
+                                                       -- Binom. Interp. --
+    Variable |       Obs  Percentile    Centile        [95% Conf. Interval]
+-------------+-------------------------------------------------------------
+     PBratio |   204,945          5    .6875185        .6795873    .6954823
+             |                   95    9.602663        9.510311    9.693985
+
+. return list
+
+scalars:
+             r(n_cent) =  2
+                  r(N) =  204945
+               r(ub_2) =  9.693985489330235
+               r(lb_2) =  9.51031096142391
+                r(c_2) =  9.602662849426274
+               r(ub_1) =  .6954822501551374
+               r(lb_1) =  .6795872510151428
+                r(c_1) =  .6875185072422028
+
+macros:
+           r(centiles) : "5 95"
+
+. local p5 = r(c_1)
+
+. local p95 = r(c_2)
+
+. drop if PBratio < `p5' | PBratio > `p95'
+(54,072 observations deleted)
+
+. save "processed_dataset1.dta", replace
+file processed_dataset1.dta saved
+
+. 
+. //For Q1
+. keep if Accper == tq(2010q4)
+(182,614 observations deleted)
+
+. reg PBratio F050504C Volatility
+
+      Source |       SS           df       MS      Number of obs   =     1,473
+-------------+----------------------------------   F(2, 1470)      =    118.57
+       Model |  803.913511         2  401.956755   Prob > F        =    0.0000
+    Residual |  4983.47885     1,470  3.39012167   R-squared       =    0.1389
+-------------+----------------------------------   Adj R-squared   =    0.1377
+       Total |  5787.39236     1,472  3.93165242   Root MSE        =    1.8412
+
+------------------------------------------------------------------------------
+     PBratio |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-------------+----------------------------------------------------------------
+    F050504C |   .6781239    .325023     2.09   0.037     .0405656    1.315682
+  Volatility |   8.591692   .5693335    15.09   0.000     7.474899    9.708485
+       _cons |   .0966348   .2574493     0.38   0.707    -.4083724     .601642
+------------------------------------------------------------------------------
+
+. 
+. //For Q2
+. use "TRD_Mnth.dta",clear
+(CSMAR)
+
+. gen date=monthly(Trdmnt, "YM")
+
+. format date %tm 
+
+. gen dateq=qofd(dofm(date))
+
+. format dateq %tq
+
+. drop Trdmnt
+
+. rename date Trdmnt
+
+. rename dateq Accper
+
+. save "processed_TRD_Mnth_monthly.dta", replace
+file processed_TRD_Mnth_monthly.dta saved
+
+. 
+. use "processed_dataset1.dta",clear
+(CSMAR)
+
+. drop Volatility
+
+. drop F050504C
+
+. drop F091001A
+
+. drop ShortName_EN
+
+. drop Mretnd
+
+. drop Mclsprc
+
+. save "processed_pbratio.dta", replace
+file processed_pbratio.dta saved
+
+. 
+. use "processed_pbratio.dta",clear
+(CSMAR)
+
+. merge 1:m Accper Stkcd using "processed_TRD_Mnth_monthly.dta"
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                        80,260
+        from master                         0  (_merge==1)
+        from using                     80,260  (_merge==2)
+
+    matched                           543,598  (_merge==3)
+    -----------------------------------------
+
+. drop _merge
+
+. encode Stkcd, gen(Stkcd_num)
+
+. xtset Stkcd_num Trdmnt
+       panel variable:  Stkcd_num (unbalanced)
+        time variable:  Trdmnt, 2009m12 to 2024m12, but with gaps
+                delta:  1 month
+
+. gen PBratio_lastmonth=L.PBratio
+(81,631 missing values generated)
+
+. drop if missing(PBratio_lastmonth)
+(81,631 observations deleted)
+
+. bysort Trdmnt (PBratio_lastmonth): gen rank=_n
+
+. xtile PBratio_decile=PBratio_lastmonth,n(10)
+
+. bysort Trdmnt PBratio_decile: egen Mretnd_portfolio= mean(Mretnd)
+
+. save "processed_dataset2.dta", replace
+file processed_dataset2.dta saved
+
+. 
+. use "processed_dataset2.dta",clear
+(CSMAR)
+
+. collapse (mean) Mretnd, by(PBratio_decile)
+
+. graph bar Mretnd, over(PBratio_decile) ///
+>     title("Mean Monthly Returns for P/B Ratio Deciles") ///
+>     ylabel(, angle(0))
+
+. exit
+
+end of do-file
+
+
+. exit, clear
